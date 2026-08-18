@@ -17,27 +17,46 @@ connectDB();
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || '*',
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
-// Serves uploaded task attachments (feature #3). Files live on local disk
-// under server/uploads — fine for a single-instance deployment; swap for S3
-// (or similar) if this ever needs to scale horizontally.
+// Serves uploaded task attachments.
+// For production scaling, replace local disk storage with S3 or similar.
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'TeamTask API' }));
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'TeamTask API',
+  });
+});
 
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskDetailRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/notifications', notificationRoutes);
 
+// Error handling
 app.use(notFound);
 app.use(errorHandler);
 
+// HTTP + Socket.IO server
 const httpServer = http.createServer(app);
 socketManager.init(httpServer);
 
+// Render provides PORT through the environment.
+// 5000 is used for local development.
 const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => console.log(`TeamTask API + Socket.IO running on port ${PORT}`));
+
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`TeamTask API + Socket.IO running on port ${PORT}`);
+});
